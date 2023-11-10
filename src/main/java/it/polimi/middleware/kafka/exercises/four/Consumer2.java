@@ -4,14 +4,9 @@ import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.errors.InterruptException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
@@ -24,6 +19,7 @@ public class Consumer2 {
 
     private static final String serverAddr = "localhost:9092";
     private static final String producerTransactionalId = "forwarderTransactionalId";
+    private static final Map<String, Integer> messageCounter = new HashMap<>();
 
     public static void main(String[] args) {
         // If there are arguments, use the first as group, the second as input topic, the third as output topic.
@@ -61,12 +57,14 @@ public class Consumer2 {
             final ConsumerRecords<String, String> records = consumer.poll(Duration.of(5, ChronoUnit.MINUTES));
             producer.beginTransaction();
             for (final ConsumerRecord<String, String> record : records) {
+                int count = messageCounter.getOrDefault(record.key(), 0) + 1;
+                messageCounter.put(record.key(), count);
                 System.out.println("Partition: " + record.partition() +
                         "\tOffset: " + record.offset() +
                         "\tKey: " + record.key() +
-                        "\tValue: " + record.value()
+                        "\tKeyCount: " + messageCounter.get(record.key())
                 );
-                producer.send(new ProducerRecord<>(outputTopic, record.key(), record.value()));
+                producer.send(new ProducerRecord<>(outputTopic, record.key(), messageCounter.get(record.key()).toString()));
             }
 
             // The producer manually commits the offsets for the consumer within the transaction
