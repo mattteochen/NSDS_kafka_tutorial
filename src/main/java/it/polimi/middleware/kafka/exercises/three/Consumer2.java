@@ -1,21 +1,26 @@
-package it.polimi.middleware.kafka.atomic_forward;
+package it.polimi.middleware.kafka.exercises.three;
 
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.InterruptException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
-public class AtomicForwarder {
-    private static final String defaultConsumerGroupId = "groupA";
-    private static final String defaultInputTopic = "topicA";
-    private static final String defaultOutputTopic = "topicB";
+public class Consumer2 {
+    private static final String defaultConsumerGroupId = "consumer2";
+    private static final String defaultInputTopic = "laboratoryOne";
+    private static final String defaultOutputTopic = "laboratoryOneModified";
 
     private static final String serverAddr = "localhost:9092";
     private static final String producerTransactionalId = "forwarderTransactionalId";

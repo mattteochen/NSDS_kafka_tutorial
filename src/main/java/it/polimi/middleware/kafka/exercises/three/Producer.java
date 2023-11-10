@@ -1,4 +1,4 @@
-package it.polimi.middleware.kafka.atomic_forward;
+package it.polimi.middleware.kafka.exercises.three;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -7,8 +7,8 @@ import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.util.*;
 
-public class IdempotentProducer {
-    private static final String defaultTopic = "topicA";
+public class Producer {
+    private static final String defaultTopic = "laboratoryOne";
 
     private static final int numMessages = 100000;
     private static final int waitBetweenMsgs = 500;

@@ -1,20 +1,20 @@
-package it.polimi.middleware.kafka.basic;
-
-import org.apache.kafka.clients.consumer.*;
-import org.apache.kafka.common.serialization.StringDeserializer;
+package it.polimi.middleware.kafka.exercises.one;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Properties;
 
-public class BasicConsumerManual {
-    private static final String defaultGroupId = "groupA";
-    private static final String defaultTopic = "topicA";
+import org.apache.kafka.clients.consumer.*;
+import org.apache.kafka.common.serialization.StringDeserializer;
+
+public class Consumer1 {
+    private static final String defaultGroupId = "consumer1";
+    private static final String defaultTopic = "laboratoryOne";
 
     private static final String serverAddr = "localhost:9092";
-    private static final boolean autoCommit = false;
-    private static final int commitEvery = 100;
+    private static final boolean autoCommit = true;
+    private static final int autoCommitIntervalMs = 15000;
 
     // Default is "latest": try "earliest" instead
     private static final String offsetResetStrategy = "latest";
@@ -29,6 +29,7 @@ public class BasicConsumerManual {
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, serverAddr);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, String.valueOf(autoCommit));
+        props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, String.valueOf(autoCommitIntervalMs));
 
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, offsetResetStrategy);
 
@@ -37,23 +38,15 @@ public class BasicConsumerManual {
 
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
         consumer.subscribe(Collections.singletonList(topic));
-
-        int numConsumed = 0;
         while (true) {
             final ConsumerRecords<String, String> records = consumer.poll(Duration.of(5, ChronoUnit.MINUTES));
             for (final ConsumerRecord<String, String> record : records) {
+                System.out.print("Consumer group: " + groupId + "\t");
                 System.out.println("Partition: " + record.partition() +
                         "\tOffset: " + record.offset() +
                         "\tKey: " + record.key() +
                         "\tValue: " + record.value()
                 );
-                numConsumed++;
-                if (numConsumed == commitEvery) {
-                    numConsumed = 0;
-                    // It is also possible to commit for individual partitions
-                    // Asynchronous versions with callback functions also available
-                    consumer.commitSync();
-                }
             }
         }
     }

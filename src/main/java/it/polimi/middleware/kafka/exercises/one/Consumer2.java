@@ -1,24 +1,28 @@
-package it.polimi.middleware.kafka.atomic_forward;
+package it.polimi.middleware.kafka.exercises.one;
 
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.InterruptException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
-public class AtomicForwarder {
-    private static final String defaultConsumerGroupId = "groupA";
-    private static final String defaultInputTopic = "topicA";
-    private static final String defaultOutputTopic = "topicB";
+public class Consumer2 {
+    private static final String defaultConsumerGroupId = "consumer2";
+    private static final String defaultInputTopic = "laboratoryOne";
+    private static final String defaultOutputTopic = "laboratoryOneModified";
 
     private static final String serverAddr = "localhost:9092";
-    private static final String producerTransactionalId = "forwarderTransactionalId";
 
     public static void main(String[] args) {
         // If there are arguments, use the first as group, the second as input topic, the third as output topic.
@@ -34,9 +38,8 @@ public class AtomicForwarder {
 
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        consumerProps.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
         // The consumer does not commit automatically, but within the producer transaction
-        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, String.valueOf(false));
+        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, String.valueOf(true));
 
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps);
         consumer.subscribe(Collections.singletonList(inputTopic));
@@ -46,34 +49,27 @@ public class AtomicForwarder {
         producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, serverAddr);
         producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        producerProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, producerTransactionalId);
-        producerProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, String.valueOf(true));
 
         final KafkaProducer<String, String> producer = new KafkaProducer<>(producerProps);
-        producer.initTransactions();
 
         while (true) {
             final ConsumerRecords<String, String> records = consumer.poll(Duration.of(5, ChronoUnit.MINUTES));
-            producer.beginTransaction();
             for (final ConsumerRecord<String, String> record : records) {
                 System.out.println("Partition: " + record.partition() +
                         "\tOffset: " + record.offset() +
                         "\tKey: " + record.key() +
                         "\tValue: " + record.value()
                 );
-                producer.send(new ProducerRecord<>(outputTopic, record.key(), record.value()));
-            }
+                System.out.println("Forwarding..." + record.value().replaceAll("[A-Z]", ""));
+                final Future<RecordMetadata> future = producer.send(new ProducerRecord<>(outputTopic, record.key(), record.value().replaceAll("[A-Z]", "")));
 
-            // The producer manually commits the offsets for the consumer within the transaction
-            final Map<TopicPartition, OffsetAndMetadata> map = new HashMap<>();
-            for (final TopicPartition partition : records.partitions()) {
-                final List<ConsumerRecord<String, String>> partitionRecords = records.records(partition);
-                final long lastOffset = partitionRecords.get(partitionRecords.size() - 1).offset();
-                map.put(partition, new OffsetAndMetadata(lastOffset + 1));
+                try {
+                    RecordMetadata ack = future.get();
+                    // System.out.println("Ack for topic " + ack.topic() + ", partition " + ack.partition() + ", offset " + ack.offset());
+                } catch (InterruptedException | ExecutionException e1) {
+                    e1.printStackTrace();
+                }
             }
-
-            producer.sendOffsetsToTransaction(map, consumer.groupMetadata());
-            producer.commitTransaction();
         }
     }
 }
